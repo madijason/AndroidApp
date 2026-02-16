@@ -59,7 +59,13 @@ class SavingsRepository(private val context: Context) {
             val updatedProjects = currentProjects.map { project ->
                 if (project.id == projectId) {
                     val newTransactions = project.transactions + transaction
-                    val newAmount = project.currentAmount + transaction.amount
+                    // Dépôt = augmente, Retrait = diminue
+                    val amountChange = if (transaction.type == TransactionType.DEPOSIT) {
+                        transaction.amount
+                    } else {
+                        -transaction.amount
+                    }
+                    val newAmount = (project.currentAmount + amountChange).coerceAtLeast(0.0)
                     project.copy(
                         transactions = newTransactions,
                         currentAmount = newAmount
@@ -78,7 +84,13 @@ class SavingsRepository(private val context: Context) {
                     val transactionToDelete = project.transactions.find { it.id == transactionId }
                     val newTransactions = project.transactions.filter { it.id != transactionId }
                     val newAmount = if (transactionToDelete != null) {
-                        project.currentAmount - transactionToDelete.amount
+                        // Annuler l'effet de la transaction supprimée
+                        val amountChange = if (transactionToDelete.type == TransactionType.DEPOSIT) {
+                            -transactionToDelete.amount
+                        } else {
+                            transactionToDelete.amount
+                        }
+                        (project.currentAmount + amountChange).coerceAtLeast(0.0)
                     } else project.currentAmount
                     project.copy(
                         transactions = newTransactions,

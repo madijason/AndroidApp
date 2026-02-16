@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.financetracker.app.data.SavingsProject
 import com.financetracker.app.data.SavingsRepository
 import com.financetracker.app.data.Transaction
+import com.financetracker.app.data.TransactionType
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -55,13 +56,17 @@ class ProjectsViewModel(private val repository: SavingsRepository) : ViewModel()
         }
     }
     
-    fun addTransaction(projectId: String, description: String, amount: Double) {
+    fun addTransaction(projectId: String, amount: Double, description: String, type: TransactionType) {
         viewModelScope.launch {
             val transaction = Transaction(
+                amount = amount,
                 description = description,
-                amount = amount
+                type = type
             )
             repository.addTransaction(projectId, transaction)
+            // Mettre à jour le projet sélectionné pour refléter les changements
+            val updatedProjects = repository.projects.stateIn(viewModelScope).value
+            _selectedProject.value = updatedProjects.find { it.id == projectId }
             hideTransactionDialog()
         }
     }
@@ -69,6 +74,9 @@ class ProjectsViewModel(private val repository: SavingsRepository) : ViewModel()
     fun deleteTransaction(projectId: String, transactionId: String) {
         viewModelScope.launch {
             repository.deleteTransaction(projectId, transactionId)
+            // Mettre à jour le projet sélectionné
+            val updatedProjects = repository.projects.stateIn(viewModelScope).value
+            _selectedProject.value = updatedProjects.find { it.id == projectId }
         }
     }
     
