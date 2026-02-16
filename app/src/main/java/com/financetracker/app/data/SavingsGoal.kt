@@ -7,7 +7,7 @@ data class SavingsGoal(
 ) {
     val progress: Float
         get() = if (targetAmount > 0) {
-            (currentAmount / targetAmount).coerceIn(0f, 1f).toFloat()
+            (currentAmount / targetAmount).coerceIn(0.0, 1.0).toFloat()
         } else 0f
     
     val remaining: Double
