@@ -1,5 +1,7 @@
 # Finance Tracker - Application Android de Gestion des Finances
 
+![Build Status](https://github.com/madijason/AndroidApp/actions/workflows/build.yml/badge.svg)
+
 💰 Une application Android moderne conçue pour vous aider à définir et suivre vos objectifs d'épargne.
 
 ## ✨ Fonctionnalités
@@ -62,6 +64,13 @@ Le dépôt inclut un workflow GitHub Actions qui :
 - Met les APK à disposition en tant qu'artifacts téléchargeables
 
 Vous pouvez télécharger les APK depuis l'onglet **Actions** de ce dépôt après chaque build réussi.
+
+### Télécharger les APK
+
+1. Allez dans l'onglet [Actions](https://github.com/madijason/AndroidApp/actions)
+2. Cliquez sur la dernière exécution réussie (badge vert)
+3. Scrollez jusqu'en bas pour voir les artifacts
+4. Téléchargez `finance-tracker-debug` ou `finance-tracker-release`
 
 ## 📝 Architecture
 
