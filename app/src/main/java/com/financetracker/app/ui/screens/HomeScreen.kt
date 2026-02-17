@@ -3,11 +3,13 @@ package com.financetracker.app.ui.screens
 import android.graphics.Color as AndroidColor
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -26,15 +28,13 @@ import com.financetracker.app.ui.components.ProjectDialog
 import com.patrykandpatrick.vico.compose.cartesian.CartesianChartHost
 import com.patrykandpatrick.vico.compose.cartesian.axis.rememberBottomAxis
 import com.patrykandpatrick.vico.compose.cartesian.axis.rememberStartAxis
-import com.patrykandpatrick.vico.compose.cartesian.layer.rememberColumnCartesianLayer
+import com.patrykandpatrick.vico.compose.cartesian.layer.rememberLineCartesianLayer
 import com.patrykandpatrick.vico.compose.cartesian.rememberCartesianChart
 import com.patrykandpatrick.vico.compose.common.component.rememberLineComponent
 import com.patrykandpatrick.vico.core.cartesian.data.CartesianChartModelProducer
-import com.patrykandpatrick.vico.core.cartesian.data.columnSeries
-import java.text.NumberFormat
-import java.util.*
+import com.patrykandpatrick.vico.core.cartesian.data.lineSeries
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun HomeScreen(
     viewModel: ProjectsViewModel,
@@ -42,32 +42,19 @@ fun HomeScreen(
 ) {
     val projects by viewModel.projects.collectAsState()
     val showProjectDialog by viewModel.showProjectDialog.collectAsState()
-    val showDeleteConfirmation by viewModel.showDeleteConfirmation.collectAsState()
     
     Scaffold(
         topBar = {
-            LargeTopAppBar(
+            TopAppBar(
                 title = { 
-                    Column {
-                        Text(
-                            "💰 Mes Économies",
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                        if (projects.isNotEmpty()) {
-                            val totalSaved = projects.sumOf { it.currentAmount }
-                            val totalTarget = projects.sumOf { it.targetAmount }
-                            Text(
-                                "${formatCurrency(totalSaved)} / ${formatCurrency(totalTarget)}",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
+                    Text(
+                        "💰 Finance Tracker",
+                        fontWeight = FontWeight.Bold
+                    ) 
                 },
-                colors = TopAppBarDefaults.largeTopAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    scrolledContainerColor = MaterialTheme.colorScheme.surface
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             )
         },
@@ -76,8 +63,7 @@ fun HomeScreen(
                 onClick = { viewModel.showProjectDialog() },
                 icon = { Icon(Icons.Default.Add, contentDescription = null) },
                 text = { Text("Nouveau projet") },
-                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                containerColor = MaterialTheme.colorScheme.primary
             )
         }
     ) { paddingValues ->
@@ -90,17 +76,18 @@ fun HomeScreen(
         ) {
             if (projects.isNotEmpty()) {
                 item {
-                    OverviewChart(projects = projects)
+                    OverallProgressCard(projects = projects)
                 }
-            }
-            
-            if (projects.isEmpty()) {
+                
                 item {
-                    EmptyState(
-                        onAddProject = { viewModel.showProjectDialog() }
+                    Text(
+                        text = "📈 Mes projets",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(vertical = 8.dp)
                     )
                 }
-            } else {
+                
                 items(
                     items = projects,
                     key = { it.id }
@@ -108,9 +95,18 @@ fun HomeScreen(
                     ProjectCard(
                         project = project,
                         onClick = { onProjectClick(project) },
-                        onDelete = { viewModel.showDeleteConfirmation(project.id) },
-                        modifier = Modifier.animateItemPlacement()
+                        onDelete = { viewModel.deleteProject(project.id) },
+                        modifier = Modifier.animateItemPlacement(
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                stiffness = Spring.StiffnessLow
+                            )
+                        )
                     )
+                }
+            } else {
+                item {
+                    EmptyProjectsState()
                 }
             }
         }
@@ -119,38 +115,128 @@ fun HomeScreen(
     if (showProjectDialog) {
         ProjectDialog(
             onDismiss = { viewModel.hideProjectDialog() },
-            onConfirm = { title, amount, color ->
-                viewModel.addProject(title, amount, color)
+            onConfirm = { title, targetAmount, colorHex ->
+                viewModel.addProject(title, targetAmount, colorHex)
             }
         )
     }
+}
+
+@Composable
+fun OverallProgressCard(projects: List<SavingsProject>) {
+    val totalSaved = projects.sumOf { it.currentAmount }
+    val totalTarget = projects.sumOf { it.targetAmount }
+    val overallProgress = if (totalTarget > 0) (totalSaved / totalTarget).toFloat() else 0f
     
-    showDeleteConfirmation?.let { projectId ->
-        val project = projects.find { it.id == projectId }
-        AlertDialog(
-            onDismissRequest = { viewModel.hideDeleteConfirmation() },
-            icon = { Icon(Icons.Default.Warning, contentDescription = null) },
-            title = { Text("Supprimer le projet ?") },
-            text = { 
-                Text("Voulez-vous vraiment supprimer \"${project?.title}\" ? Cette action est irréversible.") 
-            },
-            confirmButton = {
-                FilledTonalButton(
-                    onClick = { viewModel.deleteProject(projectId) },
-                    colors = ButtonDefaults.filledTonalButtonColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer,
-                        contentColor = MaterialTheme.colorScheme.onErrorContainer
+    val modelProducer = remember { CartesianChartModelProducer.build() }
+    
+    LaunchedEffect(projects) {
+        val progressData = projects.map { it.progress }
+        if (progressData.isNotEmpty()) {
+            modelProducer.tryRunTransaction {
+                lineSeries { series(progressData) }
+            }
+        }
+    }
+    
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 6.dp),
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = "🎯 Progression globale",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
-                ) {
-                    Text("Supprimer")
+                    Text(
+                        text = "${projects.size} projet${if (projects.size > 1) "s" else ""} actif${if (projects.size > 1) "s" else ""}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                    )
                 }
-            },
-            dismissButton = {
-                TextButton(onClick = { viewModel.hideDeleteConfirmation() }) {
-                    Text("Annuler")
+                
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
+                    modifier = Modifier.size(64.dp)
+                ) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        Text(
+                            text = "${(overallProgress * 100).toInt()}%",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
             }
-        )
+            
+            if (projects.isNotEmpty()) {
+                CartesianChartHost(
+                    chart = rememberCartesianChart(
+                        rememberLineCartesianLayer(),
+                        startAxis = rememberStartAxis(label = null),
+                        bottomAxis = rememberBottomAxis(label = null)
+                    ),
+                    modelProducer = modelProducer,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(120.dp)
+                )
+            }
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text(
+                        text = "Total économisé",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                    )
+                    Text(
+                        text = formatCurrency(totalSaved),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+                
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = "Objectif total",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                    )
+                    Text(
+                        text = formatCurrency(totalTarget),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -164,10 +250,7 @@ fun ProjectCard(
     val projectColor = Color(AndroidColor.parseColor(project.colorHex))
     val progressAnimation by animateFloatAsState(
         targetValue = project.progress,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessLow
-        ),
+        animationSpec = tween(durationMillis = 1000, easing = FastOutSlowInEasing),
         label = "progress"
     )
     
@@ -180,6 +263,14 @@ fun ProjectCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .background(
+                    brush = androidx.compose.ui.graphics.Brush.horizontalGradient(
+                        colors = listOf(
+                            projectColor.copy(alpha = 0.05f),
+                            MaterialTheme.colorScheme.surface
+                        )
+                    )
+                )
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
@@ -195,62 +286,54 @@ fun ProjectCard(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(48.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(projectColor.copy(alpha = 0.2f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(24.dp)
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(projectColor)
-                        )
-                    }
+                            .size(8.dp)
+                            .clip(CircleShape)
+                            .background(projectColor)
+                    )
                     
-                    Column {
-                        Text(
-                            text = project.title,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = "${project.transactions.size} transaction${if (project.transactions.size > 1) "s" else ""}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                    Text(
+                        text = project.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
                 
-                IconButton(onClick = onDelete) {
-                    Icon(
-                        Icons.Default.Delete,
-                        contentDescription = "Supprimer",
-                        tint = MaterialTheme.colorScheme.error
-                    )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (project.isReached) {
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer
+                        ) {
+                            Text(
+                                text = "✅ Atteint",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+                    
+                    IconButton(
+                        onClick = onDelete,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = "Supprimer",
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
             }
             
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = formatCurrency(project.currentAmount),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = projectColor
-                    )
-                    Text(
-                        text = formatCurrency(project.targetAmount),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 LinearProgressIndicator(
                     progress = { progressAnimation },
                     modifier = Modifier
@@ -266,24 +349,16 @@ fun ProjectCard(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        text = "${project.progressPercentage}% atteint",
-                        style = MaterialTheme.typography.labelMedium,
+                        text = formatCurrency(project.currentAmount),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = projectColor
+                    )
+                    Text(
+                        text = "${project.progressPercentage}% • ${formatCurrency(project.targetAmount)}",
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    if (project.remaining > 0) {
-                        Text(
-                            text = "Reste ${formatCurrency(project.remaining)}",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    } else {
-                        Text(
-                            text = "✅ Objectif atteint !",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
                 }
             }
         }
@@ -291,56 +366,11 @@ fun ProjectCard(
 }
 
 @Composable
-fun OverviewChart(projects: List<SavingsProject>) {
-    val modelProducer = remember { CartesianChartModelProducer.build() }
-    
-    LaunchedEffect(projects) {
-        modelProducer.tryRunTransaction {
-            columnSeries {
-                series(projects.map { it.progress.toDouble() * 100 })
-            }
-        }
-    }
-    
-    ElevatedCard(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Text(
-                text = "📈 Vue d'ensemble",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
-            
-            CartesianChartHost(
-                chart = rememberCartesianChart(
-                    rememberColumnCartesianLayer(),
-                    startAxis = rememberStartAxis(label = null),
-                    bottomAxis = rememberBottomAxis(label = null)
-                ),
-                modelProducer = modelProducer,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(200.dp)
-            )
-            
-            Text(
-                text = "Progression de chaque projet (%)",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-
-@Composable
-fun EmptyState(onAddProject: () -> Unit) {
+fun EmptyProjectsState() {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 32.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
         )
@@ -348,41 +378,33 @@ fun EmptyState(onAddProject: () -> Unit) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(32.dp),
+                .padding(48.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Icon(
-                Icons.Default.AccountBalance,
+                Icons.Default.Savings,
                 contentDescription = null,
-                modifier = Modifier.size(64.dp),
+                modifier = Modifier.size(72.dp),
                 tint = MaterialTheme.colorScheme.primary
             )
             
             Text(
-                text = "Aucun projet d'épargne",
+                text = "Aucun projet d'économies",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold
             )
             
             Text(
-                text = "Créez votre premier projet pour commencer à économiser vers vos objectifs !",
+                text = "Créez votre premier projet pour commencer \nà suivre vos économies",
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
-            
-            FilledTonalButton(
-                onClick = onAddProject,
-                modifier = Modifier.padding(top = 8.dp)
-            ) {
-                Icon(Icons.Default.Add, contentDescription = null)
-                Spacer(Modifier.width(8.dp))
-                Text("Créer un projet")
-            }
         }
     }
 }
 
 fun formatCurrency(amount: Double): String {
-    return NumberFormat.getCurrencyInstance(Locale.FRANCE).format(amount)
+    return String.format("%.2f €", amount)
 }
