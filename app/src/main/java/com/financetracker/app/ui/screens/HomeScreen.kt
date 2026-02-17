@@ -30,7 +30,6 @@ import com.patrykandpatrick.vico.compose.cartesian.axis.rememberBottomAxis
 import com.patrykandpatrick.vico.compose.cartesian.axis.rememberStartAxis
 import com.patrykandpatrick.vico.compose.cartesian.layer.rememberLineCartesianLayer
 import com.patrykandpatrick.vico.compose.cartesian.rememberCartesianChart
-import com.patrykandpatrick.vico.compose.common.component.rememberLineComponent
 import com.patrykandpatrick.vico.core.cartesian.data.CartesianChartModelProducer
 import com.patrykandpatrick.vico.core.cartesian.data.lineSeries
 
@@ -133,7 +132,7 @@ fun OverallProgressCard(projects: List<SavingsProject>) {
     LaunchedEffect(projects) {
         val progressData = projects.map { it.progress }
         if (progressData.isNotEmpty()) {
-            modelProducer.tryRunTransaction {
+            modelProducer.runTransaction {
                 lineSeries { series(progressData) }
             }
         }
@@ -194,8 +193,8 @@ fun OverallProgressCard(projects: List<SavingsProject>) {
                 CartesianChartHost(
                     chart = rememberCartesianChart(
                         rememberLineCartesianLayer(),
-                        startAxis = rememberStartAxis(label = null),
-                        bottomAxis = rememberBottomAxis(label = null)
+                        startAxis = rememberStartAxis(),
+                        bottomAxis = rememberBottomAxis()
                     ),
                     modelProducer = modelProducer,
                     modifier = Modifier
