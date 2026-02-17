@@ -3,6 +3,7 @@ package com.financetracker.app.ui.screens
 import android.graphics.Color as AndroidColor
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -35,7 +36,7 @@ import com.patrykandpatrick.vico.core.cartesian.data.columnSeries
 import java.text.SimpleDateFormat
 import java.util.*
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun ProjectDetailScreen(
     project: SavingsProject,
@@ -282,7 +283,7 @@ fun TransactionsChart(
     val recentTransactions = project.transactions.takeLast(10).sortedBy { it.timestamp }
     
     LaunchedEffect(recentTransactions) {
-        modelProducer.tryRunTransaction {
+        modelProducer.runTransaction {
             columnSeries {
                 series(recentTransactions.map { 
                     if (it.type == TransactionType.DEPOSIT) it.amount else -it.amount 
@@ -308,8 +309,8 @@ fun TransactionsChart(
             CartesianChartHost(
                 chart = rememberCartesianChart(
                     rememberColumnCartesianLayer(),
-                    startAxis = rememberStartAxis(label = null),
-                    bottomAxis = rememberBottomAxis(label = null)
+                    startAxis = rememberStartAxis(),
+                    bottomAxis = rememberBottomAxis()
                 ),
                 modelProducer = modelProducer,
                 modifier = Modifier
