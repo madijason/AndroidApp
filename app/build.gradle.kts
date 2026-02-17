@@ -70,10 +70,10 @@ dependencies {
     // DataStore for persistence
     implementation("androidx.datastore:datastore-preferences:1.0.0")
     
-    // Vico Charts for modern graphs
-    implementation("com.patrykandpatrick.vico:compose:1.13.1")
-    implementation("com.patrykandpatrick.vico:compose-m3:1.13.1")
-    implementation("com.patrykandpatrick.vico:core:1.13.1")
+    // Vico Charts - version compatible avec la structure cartesian
+    implementation("com.patrykandpatrick.vico:compose:2.0.0-alpha.28")
+    implementation("com.patrykandpatrick.vico:compose-m3:2.0.0-alpha.28")
+    implementation("com.patrykandpatrick.vico:core:2.0.0-alpha.28")
     
     // Gson for JSON serialization
     implementation("com.google.code.gson:gson:2.10.1")
